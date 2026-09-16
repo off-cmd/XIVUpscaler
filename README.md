@@ -40,7 +40,7 @@ and a different post-process — see
 
 ## Requirements
 
-| | |
+| Requirement | Details |
 |---|---|
 | Python | **3.11 or 3.12.** `texture2ddecoder` (BC7 decode) publishes no 3.13 wheels |
 | GPU | CUDA. `torch` and `torchvision` come from the `cu128` index pinned in `pyproject.toml` |
