@@ -8,6 +8,13 @@ rebuilt around a resumable, manifest-driven pipeline and intended to complement 
 rather than compete with it. The GitHub fork relationship is kept deliberately: see
 [Upstream provenance](#upstream-provenance).
 
+**The [wiki](https://github.com/off-cmd/XIVUpscaler/wiki) is the documentation.** This page covers what the
+project is, how to install and run it, and the licensing that comes with the models it uses.
+Everything else — architecture, the manifest schema, per-role processing, encoding policy,
+packaging — lives there, starting at
+[Getting Started and Configuration](https://github.com/off-cmd/XIVUpscaler/wiki/Getting-Started-and-Configuration) and
+[Pipeline Lifecycle](https://github.com/off-cmd/XIVUpscaler/wiki/Pipeline-Lifecycle).
+
 ---
 
 ## What it does
@@ -27,7 +34,9 @@ that is still valid.
 
 Roles matter because textures are not interchangeable: a normal map must keep unit length, a mask
 must not gain colour, UI must stay crisp at native scale. Each role is routed to a different model
-and a different post-process, which is what the `processing/` package does.
+and a different post-process — see
+[Families, Roles and Classification Policy](https://github.com/off-cmd/XIVUpscaler/wiki/Families-Roles-and-Classification-Policy) and
+[Role-Specific Processing Pipelines](https://github.com/off-cmd/XIVUpscaler/wiki/Role-Specific-Processing-Pipelines).
 
 ## Requirements
 
@@ -35,7 +44,7 @@ and a different post-process, which is what the `processing/` package does.
 |---|---|
 | Python | **3.11 or 3.12.** `texture2ddecoder` (BC7 decode) publishes no 3.13 wheels |
 | GPU | CUDA. `torch` and `torchvision` come from the `cu128` index pinned in `pyproject.toml` |
-| texconv | a **release** build from [microsoft/DirectXTex](https://github.com/microsoft/DirectXTex/releases). Run `clarity probe` first — a texconv that is not using DirectCompute falls back to a CPU BC7 codec, which is the all-cores-pegged, GPU-idle pattern at roughly a minute per tier |
+| texconv | a **release** build from [microsoft/DirectXTex](https://github.com/microsoft/DirectXTex/releases). Run `clarity probe` first — a debug build silently falls back to a CPU BC7 codec ([why this matters](https://github.com/off-cmd/XIVUpscaler/wiki/texconv-Integration-and-Batching)) |
 | a game install | read directly. Nothing is downloaded |
 | model weights | nine files, obtained separately — see [Upscaling models](#upscaling-models) |
 | path list (optional) | a ResLogger `CurrentPathList-<date>.gz` from [rl2.perchbird.dev](https://rl2.perchbird.dev), for paths the index alone does not name |
@@ -55,22 +64,9 @@ else the directory you run it from.
 and marks anything missing. Run it before anything else; it answers most setup questions on its own.
 
 Every location is a default derived from the package's position on disk, and every one is
-overridden by an environment variable:
-
-| variable | default |
-|---|---|
-| `CLARITY_DB` | `build-output/manifest.sqlite` |
-| `CLARITY_MODELS` | `analysis-specimens/models/` |
-| `CLARITY_REGISTRY` | `clarity/models/registry.json` (package data) |
-| `CLARITY_TEXCONV` | `vendor-tools/texconv/texconv.exe` |
-| `CLARITY_SCRATCH` | `temp-scratch/texconv/` |
-| `CLARITY_FINGERPRINTS` | `hash-manifests/texture-fingerprints.tsv` |
-| `CLARITY_PATHLIST` | newest `CurrentPathList*.gz` in `analysis-specimens/reslogger/` |
-
-**`CLARITY_SCRATCH` is worth setting deliberately.** texconv is handed an uncompressed RGBA DDS of
-the already-upscaled image, and Python's `tempfile` defaults to `%TEMP%` on the system drive. A 4x
-pass over a 2048-square source writes roughly 340 MiB of scratch per texture. The default keeps it
-inside the project; point it at a RAM disk or a scratch SSD if the write volume matters.
+overridden by a `CLARITY_*` environment variable. The full table, and why `CLARITY_SCRATCH` is
+worth setting deliberately on a machine where scratch writes matter, are in
+[Getting Started and Configuration](https://github.com/off-cmd/XIVUpscaler/wiki/Getting-Started-and-Configuration).
 
 ## Runbook
 
@@ -83,20 +79,11 @@ uv run clarity pack
 uv run clarity qa
 ```
 
-Other commands:
-
-| command | what it is for |
-|---|---|
-| `requeue` | put rows back to `planned` — failed, skipped, or built by an older recipe |
-| `reclassify` | re-run classification over existing rows after a classifier change |
-| `audit` | report the texture classes that are special-cased or unsupported |
-| `fingerprint` | record or compare a content hash per source texture, so a game patch can be turned into a re-queue set rather than a guess |
-| `modup` | upscale the textures inside existing mods, for icon packs |
-| `where` | print the resolved layout |
-
-After a patch, `fingerprint --check` reports changed / unchanged / gone against the stored hashes,
-and `--requeue` puts the changed rows back to `planned`. The re-upscale set is computed, not
-remembered.
+`requeue`, `reclassify`, `audit`, `fingerprint` and `modup` handle everything after the first pass —
+re-queueing failed or stale rows, reclassifying after a policy change, and turning a game patch into
+a computed re-upscale set rather than a guess. See
+[Maintenance Commands](https://github.com/off-cmd/XIVUpscaler/wiki/Maintenance-Commands), or
+[Command-Line Interface](https://github.com/off-cmd/XIVUpscaler/wiki/Command-Line-Interface) for the whole surface.
 
 ## Development
 
@@ -109,7 +96,8 @@ uv run pytest --cov            # tests; no game, GPU or weights needed
 uv build && uvx twine check dist/*
 ```
 
-`CONTRIBUTING.md` has the layout, the conventions and the list of things that bite.
+`CONTRIBUTING.md` has the layout, the conventions and the list of things that bite;
+[Development, Testing and Tooling](https://github.com/off-cmd/XIVUpscaler/wiki/Development-Testing-and-Tooling) covers the test suite and CI.
 
 ---
 
