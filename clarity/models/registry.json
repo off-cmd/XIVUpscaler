@@ -1,0 +1,11 @@
+{
+ "bc1clean": "1x_BC1-smooth2.pth",
+ "normal": "4x-Normal-RG0-BC7.pth",
+ "normal_bc1": "4x-Normal-RG0-BC1.pth",
+ "color": "4x-PBRify_UpscalerV4.pth",
+ "color_v3": "4x-PBRify_RPLKSRd_V3.pth",
+ "mask": "4x-PBRify_UpscalerSPANV4.pth",
+ "face": "4xFaceUpDAT.pth",
+ "skin": "x1_ITF_SkinDiffDDS_v1.pth",
+ "ui": "4x-UltraSharpV2.safetensors"
+}

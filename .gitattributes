@@ -1,0 +1,12 @@
+# Normalise line endings in the repository; check out as LF everywhere so a Windows
+# working tree (which this project mostly runs from) and CI see identical bytes.
+* text=auto eol=lf
+
+# Binary formats that must never be touched
+*.pth binary
+*.safetensors binary
+*.tex binary
+*.dds binary
+*.pmp binary
+*.7z binary
+*.zip binary

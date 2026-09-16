@@ -1,0 +1,204 @@
+[project]
+name = "xivupscaler"
+version = "7.56.0"
+description = "Tiered, material-aware upscaling of every vanilla FINAL FANTASY XIV texture into Penumbra mods"
+readme = "README.md"
+license = "0BSD"
+license-files = ["LICENSE"]
+authors = [{ name = "off-cmd" }]
+keywords = ["ffxiv", "upscaling", "penumbra", "textures", "esrgan", "spandrel"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: GPU :: NVIDIA CUDA",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+# texture2ddecoder (BC7 decode) ships wheels up to 3.12 -- that is the ceiling.
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy>=1.26",
+    "pillow>=10.0",
+    "texture2ddecoder>=1.0.5",
+    "tqdm>=4.66",
+    # GPU stack. torch/torchvision/spandrel are only exercised by `run`; everything else
+    # (plan, pack, qa, release, fingerprint) is numpy-only.
+    "torch>=2.7",
+    "torchvision>=0.22",
+    "spandrel>=0.4",
+    "safetensors>=0.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/off-cmd/XIVUpscaler"
+Repository = "https://github.com/off-cmd/XIVUpscaler"
+Issues = "https://github.com/off-cmd/XIVUpscaler/issues"
+Upstream = "https://github.com/kartoffels123/ffxiv_7_0_toolbox"
+
+[project.scripts]
+clarity = "clarity.cli:main"
+
+# ---------------------------------------------------------------------------
+# Development
+# ---------------------------------------------------------------------------
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16",
+    "ty>=0.0.80",
+    "pytest>=8",
+    "pytest-cov>=6",
+    "build>=1.2",
+    "twine>=6",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["clarity"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "clarity/",
+    "tests/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+# ---------------------------------------------------------------------------
+# Lint and format
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["clarity", "tests", "scripts"]
+extend-exclude = ["build-output", "analysis-specimens", "vendor-tools", "temp-scratch", "benchmarks"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # bugbear
+    "SIM",       # simplify
+    "RUF",       # ruff's own
+    "PL",        # pylint (selected below)
+    "D",         # pydocstyle, Google convention
+    "ARG",       # unused arguments
+    "PTH",       # prefer pathlib -- reported, see ignore
+    "T20",       # print() -- CLI output is intentional; see per-file-ignores
+    "ERA",       # commented-out code
+    "S",         # bandit
+]
+ignore = [
+    # Docstring *presence* is not enforced; this codebase documents by comment where a
+    # docstring would only restate the name. Style of the docstrings that exist is enforced.
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    "D203", "D213",          # conflict with D211/D212 (Google style)
+    "D400", "D415",          # first line need not end in a period
+    "PLR0913", "PLR0912", "PLR0915", "PLR0911",  # arg/branch/statement counts: judged by review
+    "PLR2004",               # magic values: binary formats are made of them
+    "PLW2901",               # loop variable reassignment
+    "PTH",                   # os.path is used consistently; converting is churn, not value
+    "S101",                  # assert: used for format invariants, and in tests
+    "S603", "S607",          # subprocess without shell, on a resolved executable path
+    "S324",                  # blake2b/sha256 are not used for passwords
+    "E501",                  # line length: the formatter owns it
+    "RUF012",                # mutable class attributes on __slots__ readers
+    "PLR0917",               # positional-argument count: see PLR0913
+    "PLC0415",               # imports inside functions are deliberate here: torch is imported
+                             # lazily so `plan`/`pack`/`release` never load it, and manifest
+                             # imports roles lazily to break the manifest -> roles -> engine cycle
+    "RUF001", "RUF002", "RUF003",  # x, -> and en dashes in prose are intended
+    "UP031",                 # printf-style formatting remains where a format spec (%-12s,
+                             # %7d) lays out a table; simple interpolations are f-strings
+]
+
+[tool.ruff.lint.per-file-ignores]
+# H, W, C, X and L are this field's notation for image dims, a point cloud and a mip
+# level; forcing h, w, c on numerical code makes it less readable, not more.
+"clarity/ffxiv/bc7enc.py" = ["N803", "N806"]
+"clarity/ffxiv/texdecode.py" = ["N806"]
+"clarity/ffxiv/texwrite.py" = ["N806"]
+"clarity/ffxiv/mdlpatch.py" = ["N806"]
+"clarity/processing/*.py" = ["N806"]
+"clarity/texio.py" = ["N806", "T20"]  # encoder probe report prints
+"clarity/uldparts.py" = ["N806"]
+"clarity/cli.py" = ["T20", "S608"]    # the CLI prints; SQL: user values are bound with ?,
+                                      # only ? placeholders and program constants are formatted in
+"clarity/manifest.py" = ["N806", "S608"]
+"clarity/packaging/*.py" = ["T20"]    # progress lines during pack/release
+"scripts/*.py" = ["T20", "S", "D"]
+"tests/*.py" = ["S", "D", "ARG", "PLC0415", "SLF001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["clarity"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["clarity", "tests"]
+
+# ---------------------------------------------------------------------------
+# Tests and coverage
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+    "gpu: needs a CUDA device and model weights; skipped in CI",
+]
+filterwarnings = ["error::DeprecationWarning:clarity"]
+
+[tool.coverage.run]
+source = ["clarity"]
+branch = true
+omit = ["clarity/processing/engine.py"]  # GPU inference; covered by `clarity probe` on a real machine
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
